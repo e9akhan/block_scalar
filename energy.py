@@ -42,9 +42,8 @@ def calculate_daily_block_price(data):
 
     for record in data:
         date_obj = datetime.strptime(record["date"], "%Y-%m-%d %H:%M:%S")
-        hour = date_obj.hour
 
-        if 6 <= hour <= 21:
+        if 6 <= date_obj.hour <= 21:
             peak_list.append(record)
         else:
             off_peak_list.append(record)
@@ -65,15 +64,16 @@ def monthly_block_data(data):
     while idx < len(data):
         daily_list = []
 
-        while idx % 24:
+        while True:
             daily_list.append(data[idx])
             idx += 1
+
+            if idx % 24 == 0:
+                break
 
         output = calculate_daily_block_price(daily_list)
         peak_price += output[0]
         off_peak_price += output[1]
-
-        idx += 1
 
     length = len(data) // 24
     return peak_price / length, off_peak_price / length
@@ -113,14 +113,13 @@ def block_data(data):
 
         monthly_record.append(dictionary)
 
-    filepath = os.getcwd() + "/block.csv"
-    with open(filepath, "w", encoding="utf-8") as f:
+    with open(os.getcwd() + "/block.csv", "w", encoding="utf-8") as f:
         headers = monthly_record[0].keys()
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
         writer.writerows(monthly_record)
 
-    return filepath
+    return os.getcwd() + "/block.csv"
 
 
 def calculate_daily_scalar_price(data, peak_price, off_peak_price):
@@ -132,9 +131,8 @@ def calculate_daily_scalar_price(data, peak_price, off_peak_price):
 
     for record in data:
         date_obj = datetime.strptime(record["date"], "%Y-%m-%d %H:%M:%S")
-        hour = date_obj.hour
 
-        if 6 <= hour <= 21:
+        if 6 <= date_obj.hour <= 21:
             peak_list.append(record)
         else:
             off_peak_list.append(record)
