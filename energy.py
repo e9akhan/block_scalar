@@ -26,11 +26,11 @@ def calculate_block_price(data):
     return sum(float(record["price"]) for record in data) / len(data) if data else 0
 
 
-def calculate_scalar_price(data, block_price):
+def calculate_scalar_price(data):
     """
     Calculate Scalar Price.
     """
-    return [float(record["price"]) / block_price for record in data]
+    return [float(record["price"]) for record in data]
 
 
 def calculate_daily_block_price(data):
@@ -42,8 +42,9 @@ def calculate_daily_block_price(data):
 
     for record in data:
         date_obj = datetime.strptime(record["date"], "%Y-%m-%d %H:%M:%S")
+        hour = date_obj.hour
 
-        if 6 <= date_obj.hour <= 21:
+        if 6 <= hour <= 21:
             peak_list.append(record)
         else:
             off_peak_list.append(record)
@@ -62,18 +63,11 @@ def monthly_block_data(data):
     peak_price, off_peak_price = 0, 0
 
     while idx < len(data):
-        daily_list = []
-
-        while True:
-            daily_list.append(data[idx])
-            idx += 1
-
-            if idx % 24 == 0:
-                break
-
-        output = calculate_daily_block_price(daily_list)
+        output = calculate_daily_block_price(data[idx : idx + 24])
         peak_price += output[0]
         off_peak_price += output[1]
+
+        idx += 24
 
     length = len(data) // 24
     return peak_price / length, off_peak_price / length
@@ -104,25 +98,25 @@ def block_data(data):
         peak_price += output[0]
         off_peak_price += output[1]
 
-        date = str(date_obj.year) + "-" + f"{month:0>2}"
-        dictionary = {
-            "date": date,
-            "peak_price": f"{peak_price:.2f}",
-            "off_peak_price": f"{off_peak_price:.2f}",
-        }
+        monthly_record.append(
+            {
+                "date": str(date_obj.year) + "-" + f"{month:0>2}",
+                "peak_price": f"{peak_price:.2f}",
+                "off_peak_price": f"{off_peak_price:.2f}",
+            }
+        )
 
-        monthly_record.append(dictionary)
-
-    with open(os.getcwd() + "/block.csv", "w", encoding="utf-8") as f:
+    filepath = os.getcwd() + "/block.csv"
+    with open(filepath, "w", encoding="utf-8") as f:
         headers = monthly_record[0].keys()
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
         writer.writerows(monthly_record)
 
-    return os.getcwd() + "/block.csv"
+    return filepath
 
 
-def calculate_daily_scalar_price(data, peak_price, off_peak_price):
+def calculate_daily_scalar_price(data):
     """
     Daily Scalar Price.
     """
@@ -131,14 +125,15 @@ def calculate_daily_scalar_price(data, peak_price, off_peak_price):
 
     for record in data:
         date_obj = datetime.strptime(record["date"], "%Y-%m-%d %H:%M:%S")
+        hour = date_obj.hour
 
-        if 6 <= date_obj.hour <= 21:
+        if 6 <= hour <= 21:
             peak_list.append(record)
         else:
             off_peak_list.append(record)
 
-    peak_block_price = calculate_scalar_price(peak_list, peak_price)
-    off_peak_block_price = calculate_scalar_price(off_peak_list, off_peak_price)
+    peak_block_price = calculate_scalar_price(peak_list)
+    off_peak_block_price = calculate_scalar_price(off_peak_list)
 
     return off_peak_block_price[:6] + peak_block_price + off_peak_block_price[6:]
 
@@ -152,23 +147,22 @@ def monthly_scalar_data(data):
     length = len(data) // 24
 
     while idx < len(data):
-        daily_list = []
-
-        while True:
-            daily_list.append(data[idx])
-            idx += 1
-
-            if (idx % 24) == 0:
-                break
-
-        peak_price, off_peak_price = calculate_daily_block_price(daily_list)
-        output = calculate_daily_scalar_price(daily_list, peak_price, off_peak_price)
+        output = calculate_daily_scalar_price(data[idx : idx + 24])
         scalar_list.append(output)
+
+        idx += 24
+
+    peak_price, off_peak_price = monthly_block_data(data)
 
     monthly_scalar_list = []
     for i in range(24):
         price = sum(scalar[i] for scalar in scalar_list)
-        monthly_scalar_list.append(price / length)
+        avg_price = price / length
+
+        if 6 <= i <= 21:
+            monthly_scalar_list.append(avg_price / peak_price)
+        else:
+            monthly_scalar_list.append(avg_price / off_peak_price)
 
     return monthly_scalar_list
 
